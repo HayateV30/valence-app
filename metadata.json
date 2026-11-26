@@ -1,0 +1,6 @@
+{
+  "name": "Valence",
+  "description": "Interactive 3D molecule viewer supporting PDB, SDF/MOL, XYZ, and CIF formats, multiple structural views, atomic bonding inspection, EN/PT-BR localization, and gemini-4-hydrogen molecular insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

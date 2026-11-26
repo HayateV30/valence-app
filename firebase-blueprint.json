@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "UserQuota": {
+      "title": "UserQuota",
+      "description": "Tracks daily action consumption (AI lookups, AI bonding summaries, and chemical file imports) per authenticated Google user.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user who owns this quota record.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "dateKey": {
+          "type": "string",
+          "description": "Current UTC calendar date in YYYY-MM-DD format.",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "actionCount": {
+          "type": "integer",
+          "description": "Number of quota-governed actions used on dateKey (0 to 25)."
+        },
+        "lastActionType": {
+          "type": "string",
+          "description": "Most recent action recorded.",
+          "enum": ["init", "import", "lookup", "analyze"],
+          "maxLength": 16
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the quota record was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the quota record was last updated."
+        }
+      },
+      "required": ["ownerId", "dateKey", "actionCount", "lastActionType", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/userQuotas/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserQuota"
+      },
+      "description": "Per-user daily usage quota document keyed by Firebase Auth UID."
+    }
+  }
+}
