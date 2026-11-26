@@ -33,7 +33,52 @@ export const ELEMENTS: Record<string, ElementInfo> = {
   ZN: { symbol: 'Zn', atomicNumber: 30, nameEn: 'Zinc', namePt: 'Zinco', atomicMass: 65.38, cpkHex: '#7D80B0', covalentRadius: 1.22, vdwRadius: 1.39, hydrophobicity: -0.3 },
   BR: { symbol: 'Br', atomicNumber: 35, nameEn: 'Bromine', namePt: 'Bromo', atomicMass: 79.904, cpkHex: '#A62929', covalentRadius: 1.2, vdwRadius: 1.85, hydrophobicity: 0.6 },
   I: { symbol: 'I', atomicNumber: 53, nameEn: 'Iodine', namePt: 'Iodo', atomicMass: 126.9, cpkHex: '#940094', covalentRadius: 1.39, vdwRadius: 1.98, hydrophobicity: 0.7 },
+  TI: { symbol: 'Ti', atomicNumber: 22, nameEn: 'Titanium', namePt: 'Titânio', atomicMass: 47.867, cpkHex: '#BFC2C7', covalentRadius: 1.6, vdwRadius: 2.0, hydrophobicity: -0.3 },
+  CR: { symbol: 'Cr', atomicNumber: 24, nameEn: 'Chromium', namePt: 'Cromo', atomicMass: 51.996, cpkHex: '#8A99C7', covalentRadius: 1.39, vdwRadius: 2.0, hydrophobicity: -0.3 },
+  MN: { symbol: 'Mn', atomicNumber: 25, nameEn: 'Manganese', namePt: 'Manganês', atomicMass: 54.938, cpkHex: '#9C7AC7', covalentRadius: 1.39, vdwRadius: 2.0, hydrophobicity: -0.3 },
+  CO: { symbol: 'Co', atomicNumber: 27, nameEn: 'Cobalt', namePt: 'Cobalto', atomicMass: 58.933, cpkHex: '#F090A0', covalentRadius: 1.26, vdwRadius: 2.0, hydrophobicity: -0.3 },
+  NI: { symbol: 'Ni', atomicNumber: 28, nameEn: 'Nickel', namePt: 'Níquel', atomicMass: 58.693, cpkHex: '#50D050', covalentRadius: 1.24, vdwRadius: 1.63, hydrophobicity: -0.3 },
+  AS: { symbol: 'As', atomicNumber: 33, nameEn: 'Arsenic', namePt: 'Arsênio', atomicMass: 74.922, cpkHex: '#BD80E3', covalentRadius: 1.19, vdwRadius: 1.85, hydrophobicity: 0.0 },
+  SE: { symbol: 'Se', atomicNumber: 34, nameEn: 'Selenium', namePt: 'Selênio', atomicMass: 78.971, cpkHex: '#FFA100', covalentRadius: 1.2, vdwRadius: 1.9, hydrophobicity: 0.45 },
+  MO: { symbol: 'Mo', atomicNumber: 42, nameEn: 'Molybdenum', namePt: 'Molibdênio', atomicMass: 95.95, cpkHex: '#54B5B5', covalentRadius: 1.54, vdwRadius: 2.0, hydrophobicity: -0.3 },
+  PD: { symbol: 'Pd', atomicNumber: 46, nameEn: 'Palladium', namePt: 'Paládio', atomicMass: 106.42, cpkHex: '#006985', covalentRadius: 1.39, vdwRadius: 1.63, hydrophobicity: -0.2 },
+  AG: { symbol: 'Ag', atomicNumber: 47, nameEn: 'Silver', namePt: 'Prata', atomicMass: 107.87, cpkHex: '#C0C0C0', covalentRadius: 1.45, vdwRadius: 1.72, hydrophobicity: -0.2 },
+  CD: { symbol: 'Cd', atomicNumber: 48, nameEn: 'Cadmium', namePt: 'Cádmio', atomicMass: 112.41, cpkHex: '#FFD98F', covalentRadius: 1.44, vdwRadius: 1.58, hydrophobicity: -0.3 },
+  SN: { symbol: 'Sn', atomicNumber: 50, nameEn: 'Tin', namePt: 'Estanho', atomicMass: 118.71, cpkHex: '#668080', covalentRadius: 1.39, vdwRadius: 2.17, hydrophobicity: 0.0 },
+  PT: { symbol: 'Pt', atomicNumber: 78, nameEn: 'Platinum', namePt: 'Platina', atomicMass: 195.08, cpkHex: '#D0D0E0', covalentRadius: 1.36, vdwRadius: 1.75, hydrophobicity: -0.2 },
+  AU: { symbol: 'Au', atomicNumber: 79, nameEn: 'Gold', namePt: 'Ouro', atomicMass: 196.97, cpkHex: '#FFD123', covalentRadius: 1.36, vdwRadius: 1.66, hydrophobicity: -0.2 },
+  HG: { symbol: 'Hg', atomicNumber: 80, nameEn: 'Mercury', namePt: 'Mercúrio', atomicMass: 200.59, cpkHex: '#B8B8D0', covalentRadius: 1.32, vdwRadius: 1.55, hydrophobicity: -0.2 },
+  PB: { symbol: 'Pb', atomicNumber: 82, nameEn: 'Lead', namePt: 'Chumbo', atomicMass: 207.2, cpkHex: '#575961', covalentRadius: 1.46, vdwRadius: 2.02, hydrophobicity: -0.2 },
 };
+
+// All 118 symbols in atomic-number order, with standard atomic weights (mass number
+// of the most stable isotope for elements without one). Elements without a full
+// entry above still get the right symbol, atomic number and mass.
+const PERIODIC_TABLE =
+  'H 1.008 He 4.0026 Li 6.94 Be 9.0122 B 10.81 C 12.011 N 14.007 O 15.999 F 18.998 Ne 20.18 ' +
+  'Na 22.99 Mg 24.305 Al 26.982 Si 28.085 P 30.974 S 32.06 Cl 35.45 Ar 39.948 K 39.098 Ca 40.078 ' +
+  'Sc 44.956 Ti 47.867 V 50.942 Cr 51.996 Mn 54.938 Fe 55.845 Co 58.933 Ni 58.693 Cu 63.546 Zn 65.38 ' +
+  'Ga 69.723 Ge 72.63 As 74.922 Se 78.971 Br 79.904 Kr 83.798 Rb 85.468 Sr 87.62 Y 88.906 Zr 91.224 ' +
+  'Nb 92.906 Mo 95.95 Tc 98 Ru 101.07 Rh 102.91 Pd 106.42 Ag 107.87 Cd 112.41 In 114.82 Sn 118.71 ' +
+  'Sb 121.76 Te 127.6 I 126.9 Xe 131.29 Cs 132.91 Ba 137.33 La 138.91 Ce 140.12 Pr 140.91 Nd 144.24 ' +
+  'Pm 145 Sm 150.36 Eu 151.96 Gd 157.25 Tb 158.93 Dy 162.5 Ho 164.93 Er 167.26 Tm 168.93 Yb 173.05 ' +
+  'Lu 174.97 Hf 178.49 Ta 180.95 W 183.84 Re 186.21 Os 190.23 Ir 192.22 Pt 195.08 Au 196.97 Hg 200.59 ' +
+  'Tl 204.38 Pb 207.2 Bi 208.98 Po 209 At 210 Rn 222 Fr 223 Ra 226 Ac 227 Th 232.04 ' +
+  'Pa 231.04 U 238.03 Np 237 Pu 244 Am 243 Cm 247 Bk 247 Cf 251 Es 252 Fm 257 ' +
+  'Md 258 No 259 Lr 266 Rf 267 Db 268 Sg 269 Bh 270 Hs 269 Mt 278 Ds 281 ' +
+  'Rg 282 Cn 285 Nh 286 Fl 289 Mc 290 Lv 293 Ts 294 Og 294';
+
+const PERIODIC: { symbol: string; mass: number }[] = [];
+const PERIODIC_BY_SYMBOL = new Map<string, { atomicNumber: number; mass: number }>();
+{
+  const tokens = PERIODIC_TABLE.split(' ');
+  for (let i = 0; i < tokens.length; i += 2) {
+    const symbol = tokens[i];
+    const mass = parseFloat(tokens[i + 1]);
+    PERIODIC.push({ symbol, mass });
+    PERIODIC_BY_SYMBOL.set(symbol, { atomicNumber: PERIODIC.length, mass });
+  }
+}
 
 // Normalized Kyte-Doolittle residue hydrophobicity (-1 to +1)
 export const RESIDUE_HYDROPHOBICITY: Record<string, number> = {
@@ -70,33 +115,48 @@ export const CHAIN_PALETTE = [
   '#60A5FA', // blue
 ];
 
+/**
+ * Turns a raw element field ("Se", "FE", "Fe3+", "C1A", "H12A", "6") into a symbol.
+ * Only the leading letters count, so a CIF/PDB label like "C1A" is carbon, not calcium.
+ * A two-letter symbol is taken when its second letter is lowercase ("Co1"), or when the
+ * letters are upper case and form an element with a full entry ("FE", "CL", "HG").
+ * Never falls back to "whatever the first letter is" for an unknown pair: returns "X".
+ */
 export function normalizeElementSymbol(raw: string): string {
-  const cleaned = raw.trim().replace(/[^a-zA-Z]/g, '');
-  if (!cleaned) return 'C';
-  const upper = cleaned.toUpperCase();
-  if (ELEMENTS[upper]) return ELEMENTS[upper].symbol;
-  // Try first two chars then first char
-  if (upper.length >= 2 && ELEMENTS[upper.slice(0, 2)]) {
-    return ELEMENTS[upper.slice(0, 2)].symbol;
+  const trimmed = raw.trim();
+  if (/^\d+$/.test(trimmed)) {
+    const z = parseInt(trimmed, 10);
+    return PERIODIC[z - 1]?.symbol ?? 'X';
   }
-  if (ELEMENTS[upper[0]]) {
-    return ELEMENTS[upper[0]].symbol;
+  const letters = trimmed.replace(/^[^A-Za-z]+/, '').match(/^[A-Za-z]+/)?.[0] ?? '';
+  if (!letters) return 'C';
+
+  const first = letters[0].toUpperCase();
+  if (letters.length >= 2) {
+    const two = first + letters[1].toLowerCase();
+    const secondIsLower = letters[1] !== letters[1].toUpperCase();
+    if (secondIsLower && PERIODIC_BY_SYMBOL.has(two)) return two;
+    if (!secondIsLower && ELEMENTS[two.toUpperCase()]) return two;
   }
-  return cleaned[0].toUpperCase() + cleaned.slice(1).toLowerCase();
+  if (PERIODIC_BY_SYMBOL.has(first)) return first;
+  return 'X';
 }
 
 export function getElementInfo(symbol: string): ElementInfo {
   const key = symbol.trim().toUpperCase();
   if (ELEMENTS[key]) return ELEMENTS[key];
+  const known = PERIODIC_BY_SYMBOL.get(symbol.trim());
   return {
     symbol: symbol || 'X',
-    atomicNumber: 0,
+    atomicNumber: known?.atomicNumber ?? 0,
     nameEn: symbol || 'Unknown',
     namePt: symbol || 'Desconhecido',
-    atomicMass: 12.0,
-    cpkHex: '#94A3B8',
-    covalentRadius: 0.77,
-    vdwRadius: 1.7,
+    atomicMass: known?.mass ?? 0,
+    cpkHex: known ? '#C8A0E0' : '#94A3B8',
+    // Elements without a full entry are mostly metals: a generic metal radius keeps
+    // metal-ligand bonds inside the inference cut-off.
+    covalentRadius: known ? 1.4 : 0.77,
+    vdwRadius: known ? 2.0 : 1.7,
     hydrophobicity: 0,
   };
 }

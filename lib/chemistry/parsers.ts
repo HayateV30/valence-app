@@ -479,7 +479,23 @@ export function parseCIF(content: string, fileName = 'structure.cif'): MoleculeD
         const fyIdx = colIdx(['_atom_site.fract_y', '_atom_site_fract_y']);
         const fzIdx = colIdx(['_atom_site.fract_z', '_atom_site_fract_z']);
 
+        // mmCIF keeps every NMR model and every alternate location in one loop.
+        // Keep only the first model and the first conformer, as parsePDB does.
+        const modelIdx = colIdx(['_atom_site.pdbx_pdb_model_num']);
+        const altIdx = colIdx(['_atom_site.label_alt_id']);
+        let firstModel: string | null = null;
+
         for (const row of rows) {
+          if (modelIdx >= 0) {
+            const model = row[modelIdx];
+            if (firstModel === null) firstModel = model;
+            else if (model !== firstModel) continue;
+          }
+          if (altIdx >= 0) {
+            const alt = row[altIdx];
+            if (alt && alt !== '.' && alt !== '?' && alt !== 'A' && alt !== '1') continue;
+          }
+
           let x = NaN;
           let y = NaN;
           let z = NaN;
