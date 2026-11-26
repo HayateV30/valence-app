@@ -182,12 +182,9 @@ export function ValenceWorkspace() {
 
       setAiLoading(true);
       try {
-        const allowed = await consumeDailyAction('lookup');
-        if (!allowed) {
-          setBannerError(t.errors.quotaExceeded);
-          return;
-        }
-
+        // The action is charged only after the AI answered with a usable molecule, so a
+        // Gemini failure costs nothing. Accepted risk: two requests started together can
+        // both pass the pre-check above and go slightly over the daily limit.
         const res = await fetch('/api/molecule-ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -238,6 +235,12 @@ export function ValenceWorkspace() {
           inferMissingBonds: true,
         });
 
+        const allowed = await consumeDailyAction('lookup');
+        if (!allowed) {
+          setBannerError(t.errors.quotaExceeded);
+          return;
+        }
+
         setActivePresetId(built.id);
         setSelectedAtomIndex(null);
         setSelectedBondIndex(null);
@@ -266,12 +269,7 @@ export function ValenceWorkspace() {
 
     setAiAnalyzing(true);
     try {
-      const allowed = await consumeDailyAction('analyze');
-      if (!allowed) {
-        setBannerError(t.errors.quotaExceeded);
-        return;
-      }
-
+      // Charged only after a successful answer, as in handleAiLookup.
       const res = await fetch('/api/molecule-ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -292,6 +290,15 @@ export function ValenceWorkspace() {
       const payload = await res.json();
       if (!res.ok || payload.error) {
         throw new Error(payload.error || t.errors.aiFailed);
+      }
+      if (!payload.result) {
+        throw new Error(t.errors.aiFailed);
+      }
+
+      const allowed = await consumeDailyAction('analyze');
+      if (!allowed) {
+        setBannerError(t.errors.quotaExceeded);
+        return;
       }
 
       setAiAnalysisCache((prev) => ({

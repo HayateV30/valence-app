@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -80,6 +81,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  // The quota resets at UTC midnight, but no Firestore snapshot arrives then. Re-derive
+  // the count when the UTC day changes, so a user who hit the limit yesterday is not
+  // locked out until the page reloads.
+  const [utcDay, setUtcDay] = useState(getUtcDateKey);
+  const docDateRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const now = new Date();
+    const nextMidnight = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+    );
+    const timer = window.setTimeout(
+      () => setUtcDay(getUtcDateKey()),
+      nextMidnight - now.getTime() + 1000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [utcDay]);
+
+  useEffect(() => {
+    setQuota((prev) =>
+      prev.dateKey === utcDay
+        ? prev
+        : {
+            ...prev,
+            dateKey: utcDay,
+            actionCount: docDateRef.current === utcDay ? prev.actionCount : 0,
+          },
+    );
+  }, [utcDay]);
+
   useEffect(() => {
     if (!authReady || !user) return;
 
@@ -92,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (snap) => {
         const currentToday = getUtcDateKey();
         if (!snap.exists()) {
+          docDateRef.current = currentToday;
           // Initialize quota doc on first sign-in
           setDoc(quotaRef, {
             ownerId: user.uid,
@@ -114,6 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const data = snap.data();
         const docDate = typeof data.dateKey === 'string' ? data.dateKey : today;
+        docDateRef.current = docDate;
         const rawCount =
           typeof data.actionCount === 'number' ? data.actionCount : 0;
 
