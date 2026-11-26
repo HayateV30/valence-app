@@ -29,6 +29,7 @@ import {
   MoleculeData,
   RepresentationMode,
 } from '@/lib/chemistry/types';
+import { auth } from '@/lib/firebase';
 import { Locale, TRANSLATIONS } from '@/lib/i18n';
 
 const LOCALE_STORAGE_KEY = 'valence_locale';
@@ -58,6 +59,13 @@ function getLocaleSnapshot(): Locale {
 
 function getLocaleServerSnapshot(): Locale {
   return 'en';
+}
+
+/** Headers for /api/molecule-ai: the route needs the user's Firebase ID token. */
+async function aiHeaders(): Promise<Record<string, string>> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('Sign in to use the AI features.');
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 }
 
 export function ValenceWorkspace() {
@@ -182,12 +190,10 @@ export function ValenceWorkspace() {
 
       setAiLoading(true);
       try {
-        // The action is charged only after the AI answered with a usable molecule, so a
-        // Gemini failure costs nothing. Accepted risk: two requests started together can
-        // both pass the pre-check above and go slightly over the daily limit.
+        // The server checks and charges the daily action, and only after Gemini answered.
         const res = await fetch('/api/molecule-ai', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await aiHeaders(),
           body: JSON.stringify({
             action: 'lookup',
             query,
@@ -235,12 +241,6 @@ export function ValenceWorkspace() {
           inferMissingBonds: true,
         });
 
-        const allowed = await consumeDailyAction('lookup');
-        if (!allowed) {
-          setBannerError(t.errors.quotaExceeded);
-          return;
-        }
-
         setActivePresetId(built.id);
         setSelectedAtomIndex(null);
         setSelectedBondIndex(null);
@@ -269,15 +269,16 @@ export function ValenceWorkspace() {
 
     setAiAnalyzing(true);
     try {
-      // Charged only after a successful answer, as in handleAiLookup.
+      // The server checks and charges the daily action, as in handleAiLookup.
       const res = await fetch('/api/molecule-ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await aiHeaders(),
         body: JSON.stringify({
           action: 'analyze',
           locale,
           molecule: {
-            name: molecule.name,
+            // The server accepts at most 160 characters (long PDB titles are common).
+            name: molecule.name.slice(0, 160),
             formulaString: molecule.formulaString,
             molecularWeight: molecule.molecularWeight,
             atomCount: molecule.atomCount,
@@ -293,12 +294,6 @@ export function ValenceWorkspace() {
       }
       if (!payload.result) {
         throw new Error(t.errors.aiFailed);
-      }
-
-      const allowed = await consumeDailyAction('analyze');
-      if (!allowed) {
-        setBannerError(t.errors.quotaExceeded);
-        return;
       }
 
       setAiAnalysisCache((prev) => ({

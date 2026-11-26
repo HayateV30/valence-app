@@ -1,7 +1,31 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
+import firebaseConfig from '../../../firebase-applet-config.json';
+import {
+  AuthError,
+  InputError,
+  MAX_BODY_BYTES,
+  QuotaContext,
+  QuotaError,
+  allowIp,
+  chargeAction,
+  parseAiInput,
+  readQuota,
+  remainingToday,
+  tryLockUser,
+  unlockUser,
+} from '@/lib/server/aiGuard';
 
 const MODEL_NAME = 'gemini-4-hydrogen';
+
+const QUOTA_CTX: QuotaContext = {
+  projectId: firebaseConfig.projectId,
+  databaseId: firebaseConfig.firestoreDatabaseId,
+};
+
+function clientIp(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+}
 
 function getAiClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -19,35 +43,92 @@ function getAiClient(): GoogleGenAI {
 }
 
 function getErrorStatus(error: unknown): { status: number; message: string } {
+  if (error instanceof InputError) return { status: 400, message: error.message };
+  if (error instanceof AuthError) return { status: 401, message: error.message };
+  if (error instanceof QuotaError) {
+    return { status: 429, message: 'Daily limit of AI actions reached. Try again tomorrow (UTC).' };
+  }
   const msg = error instanceof Error ? error.message : String(error);
-  if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
+  if (msg.includes('RESOURCE_EXHAUSTED') || /\b429\b/.test(msg)) {
     return {
       status: 429,
       message:
         'Gemini free-tier rate limit reached. Please wait a moment and try again.',
     };
   }
-  if (msg.includes('403') || msg.includes('PERMISSION_DENIED')) {
+  if (msg.includes('PERMISSION_DENIED') || /\b403\b/.test(msg)) {
     return {
       status: 403,
       message:
         'Gemini API access denied. Check GEMINI_API_KEY in Settings > Secrets.',
     };
   }
-  if (msg.includes('400') || msg.includes('API_KEY_INVALID')) {
+  if (msg.includes('API_KEY_INVALID') || /\b400\b/.test(msg)) {
     return {
       status: 400,
       message: 'Invalid Gemini API request or API key.',
     };
   }
-  return { status: 500, message: msg };
+  console.error('molecule-ai failed:', msg);
+  return { status: 500, message: 'The AI request failed. Please try again.' };
+}
+
+async function readBody(req: NextRequest): Promise<unknown> {
+  const declared = Number(req.headers.get('content-length') ?? '0');
+  if (declared > MAX_BODY_BYTES) throw new InputError('Request body is too large.');
+  const raw = await req.text();
+  if (Buffer.byteLength(raw, 'utf8') > MAX_BODY_BYTES) {
+    throw new InputError('Request body is too large.');
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new InputError('Request body is not valid JSON.');
+  }
 }
 
 export async function POST(req: NextRequest) {
+  if (!allowIp(clientIp(req))) {
+    return NextResponse.json(
+      { error: 'Too many requests. Wait a minute and try again.' },
+      { status: 429 },
+    );
+  }
+
+  const authHeader = req.headers.get('authorization') ?? '';
+  const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!idToken) {
+    return NextResponse.json({ error: 'Sign in to use the AI features.' }, { status: 401 });
+  }
+
+  let lockedUid: string | null = null;
   try {
-    const body = await req.json();
-    const action = body?.action as 'lookup' | 'analyze';
-    const locale = body?.locale === 'pt-BR' ? 'pt-BR' : 'en';
+    const input = parseAiInput(await readBody(req));
+
+    // Verifies the token through Firestore and reads today's count before any Gemini call.
+    const quota = await readQuota(QUOTA_CTX, idToken);
+    if (!tryLockUser(quota.uid)) {
+      return NextResponse.json(
+        { error: 'Another AI request is still running. Wait for it to finish.' },
+        { status: 429 },
+      );
+    }
+    lockedUid = quota.uid;
+    if (remainingToday(quota) <= 0) throw new QuotaError('Daily limit reached.');
+
+    // The action is charged only after Gemini answered (see chargeAfterSuccess).
+    const chargeAfterSuccess = async () => {
+      try {
+        await chargeAction(QUOTA_CTX, idToken, quota, input.action);
+      } catch (err) {
+        if (!(err instanceof QuotaError)) throw err;
+        // The document changed since the read (for example a file import): read again once.
+        const fresh = await readQuota(QUOTA_CTX, idToken);
+        await chargeAction(QUOTA_CTX, idToken, fresh, input.action);
+      }
+    };
+
+    const locale = input.locale;
     const langInstruction =
       locale === 'pt-BR'
         ? 'Respond in clear Brazilian Portuguese (pt-BR).'
@@ -55,14 +136,8 @@ export async function POST(req: NextRequest) {
 
     const ai = getAiClient();
 
-    if (action === 'lookup') {
-      const query = String(body?.query ?? '').trim();
-      if (!query || query.length > 160) {
-        return NextResponse.json(
-          { error: 'Please provide a valid molecule name or formula (1-160 chars).' },
-          { status: 400 },
-        );
-      }
+    if (input.action === 'lookup') {
+      const query = input.query;
 
       const response = await ai.models.generateContent({
         model: MODEL_NAME,
@@ -117,26 +192,28 @@ Provide explicit covalent bond indices (0-based) and bond orders (1, 1.5 for aro
 
       const rawText = (response.text ?? '{}').trim();
       const parsed = JSON.parse(rawText);
+      if (!parsed || !Array.isArray(parsed.atoms) || parsed.atoms.length === 0) {
+        throw new Error('Gemini returned no atoms.');
+      }
+      if (parsed.atoms.length > 2000) parsed.atoms = parsed.atoms.slice(0, 2000);
+      await chargeAfterSuccess();
       return NextResponse.json({ result: parsed });
     }
 
-    if (action === 'analyze') {
-      const molecule = body?.molecule;
-      if (!molecule || !molecule.formulaString) {
-        return NextResponse.json(
-          { error: 'Missing molecule summary payload.' },
-          { status: 400 },
-        );
-      }
+    {
+      const molecule = input.molecule;
+      const pairs = molecule.pairFrequencies
+        .map((p) => `${p.pair} (order ${p.order}, ${p.count}x, ${p.avgLength.toFixed(3)} Å)`)
+        .join('; ');
 
       const compactPrompt = `Analyze this 3D molecule structure:
-Name: ${String(molecule.name)}
-Formula: ${String(molecule.formulaString)}
-Molar Mass: ${Number(molecule.molecularWeight).toFixed(2)} g/mol
-Atoms: ${Number(molecule.atomCount)}
-Bonds: ${Number(molecule.bondCount)} (Single: ${Number(molecule.bondSummary?.single ?? 0)}, Double: ${Number(molecule.bondSummary?.double ?? 0)}, Triple: ${Number(molecule.bondSummary?.triple ?? 0)}, Aromatic: ${Number(molecule.bondSummary?.aromatic ?? 0)})
-Mean Bond Length: ${Number(molecule.bondSummary?.avgBondLength ?? 0).toFixed(3)} Å
-Top Bond Pairs: ${JSON.stringify(molecule.bondSummary?.pairFrequencies?.slice(0, 8) ?? [])}`;
+Name: ${molecule.name}
+Formula: ${molecule.formulaString}
+Molar Mass: ${molecule.molecularWeight.toFixed(2)} g/mol
+Atoms: ${molecule.atomCount}
+Bonds: ${molecule.bondCount} (Single: ${molecule.single}, Double: ${molecule.double}, Triple: ${molecule.triple}, Aromatic: ${molecule.aromatic})
+Mean Bond Length: ${molecule.avgBondLength.toFixed(3)} Å
+Top Bond Pairs: ${pairs || 'none'}`;
 
       const response = await ai.models.generateContent({
         model: MODEL_NAME,
@@ -176,12 +253,16 @@ Top Bond Pairs: ${JSON.stringify(molecule.bondSummary?.pairFrequencies?.slice(0,
 
       const rawText = (response.text ?? '{}').trim();
       const parsed = JSON.parse(rawText);
+      if (!parsed || typeof parsed.overview !== 'string') {
+        throw new Error('Gemini returned no analysis.');
+      }
+      await chargeAfterSuccess();
       return NextResponse.json({ result: parsed });
     }
-
-    return NextResponse.json({ error: 'Unsupported action.' }, { status: 400 });
   } catch (error) {
     const { status, message } = getErrorStatus(error);
     return NextResponse.json({ error: message }, { status });
+  } finally {
+    if (lockedUid) unlockUser(lockedUid);
   }
 }
